@@ -1,0 +1,22 @@
+{
+  "name": "CNPJ Finder",
+  "short_name": "CNPJ Finder",
+  "description": "Consulta gratuita de CNPJ de empresas brasileiras",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#c57001",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

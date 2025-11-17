@@ -1,549 +1,522 @@
-// Configurações
-const API_BASE_URL = "/api/cnpj";
+// =============================================
+// CONFIGURAÇÕES E CONSTANTES
+// =============================================
+const CONFIG = {
+  API_BASE_URL: "/api/cnpj",
+  DEBOUNCE_DELAY: 500,
+  REQUEST_TIMEOUT: 30000,
+  MAX_RETRIES: 2,
+  RETRY_DELAY: 1000
+};
 
-// Elementos DOM
-const cnpjInput = document.getElementById("cnpjInput");
-const searchBtn = document.getElementById("searchBtn");
-const errorMessage = document.getElementById("errorMessage");
-const loading = document.getElementById("loading");
-const result = document.getElementById("result");
-const partnersCard = document.getElementById("partnersCard");
-const partnersList = document.getElementById("partnersList");
-const themeToggle = document.getElementById("themeToggle");
-const completeData = document.getElementById("completeData");
+// =============================================
+// VALIDAÇÃO DE CNPJ (ALGORITMO OFICIAL)
+// =============================================
+class CNPJValidator {
+  static clean(cnpj) {
+    return cnpj.replace(/\D/g, "");
+  }
 
-// Elementos para exibir os dados principais
-const companyName = document.getElementById("companyName");
-const tradeName = document.getElementById("tradeName");
-const cnpj = document.getElementById("cnpj");
-const ie = document.getElementById("ie");
-const status = document.getElementById("status");
-const address = document.getElementById("address");
-const cnae = document.getElementById("cnae");
-const phones = document.getElementById("phones");
-const email = document.getElementById("email");
+  static format(cnpj) {
+    const cleaned = this.clean(cnpj);
+    if (cleaned.length !== 14) return cnpj;
+    
+    return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  }
 
-// Event Listeners
-document.addEventListener("DOMContentLoaded", () => {
-  searchBtn.addEventListener("click", handleSearch);
-  cnpjInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      handleSearch();
+  static validate(cnpj) {
+    const cleaned = this.clean(cnpj);
+    
+    // Verifica tamanho
+    if (cleaned.length !== 14) {
+      return { isValid: false, error: "CNPJ deve conter 14 dígitos" };
     }
-  });
 
-  // Permitir apenas números no input
-  cnpjInput.addEventListener("input", (e) => {
-    e.target.value = e.target.value.replace(/\D/g, "");
-  });
-
-  // Toggle de tema
-  themeToggle.addEventListener("click", toggleTheme);
-
-  // Tabs
-  document.querySelectorAll(".tab-button").forEach((button) => {
-    button.addEventListener("click", (e) => {
-      switchTab(e.target.dataset.tab);
-    });
-  });
-
-  // Focar no input ao carregar a página
-  cnpjInput.focus();
-});
-
-// Função para alternar entre tabs
-function switchTab(tabName) {
-  // Atualizar botões das tabs
-  document.querySelectorAll(".tab-button").forEach((button) => {
-    button.classList.remove("active");
-  });
-  document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
-
-  // Atualizar conteúdo das tabs
-  document.querySelectorAll(".tab-pane").forEach((pane) => {
-    pane.classList.remove("active");
-  });
-  document.getElementById(`tab-${tabName}`).classList.add("active");
-}
-
-// Função para alternar tema
-function toggleTheme() {
-  const body = document.body;
-  const isDarkMode = body.classList.contains("dark-mode");
-
-  if (isDarkMode) {
-    body.classList.remove("dark-mode");
-    themeToggle.querySelector(".theme-icon").textContent = "🌙";
-  } else {
-    body.classList.add("dark-mode");
-    themeToggle.querySelector(".theme-icon").textContent = "☀️";
-  }
-
-  // Salvar preferência no localStorage
-  localStorage.setItem("theme", isDarkMode ? "light" : "dark");
-}
-
-// Função para validar o CNPJ
-function validateCNPJ(cnpj) {
-  cnpj = cnpj.replace(/\D/g, "");
-
-  if (cnpj.length !== 14) {
-    return false;
-  }
-
-  // Elimina CNPJs com valores inválidos conhecidos
-  if (/^(\d)\1+$/.test(cnpj)) {
-    return false;
-  }
-
-  // Validação dos dígitos verificadores
-  let tamanho = cnpj.length - 2;
-  let numeros = cnpj.substring(0, tamanho);
-  let digitos = cnpj.substring(tamanho);
-  let soma = 0;
-  let pos = tamanho - 7;
-
-  for (let i = tamanho; i >= 1; i--) {
-    soma += numeros.charAt(tamanho - i) * pos--;
-    if (pos < 2) {
-      pos = 9;
+    // Elimina CNPJs inválidos conhecidos
+    if (/^(\d)\1+$/.test(cleaned)) {
+      return { isValid: false, error: "CNPJ com dígitos repetidos é inválido" };
     }
-  }
 
-  let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
-  if (resultado !== parseInt(digitos.charAt(0))) {
-    return false;
-  }
+    // Valida dígitos verificadores
+    let tamanho = cleaned.length - 2;
+    let numeros = cleaned.substring(0, tamanho);
+    let digitos = cleaned.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
 
-  tamanho = tamanho + 1;
-  numeros = cnpj.substring(0, tamanho);
-  soma = 0;
-  pos = tamanho - 7;
-
-  for (let i = tamanho; i >= 1; i--) {
-    soma += numeros.charAt(tamanho - i) * pos--;
-    if (pos < 2) {
-      pos = 9;
+    for (let i = tamanho; i >= 1; i--) {
+      soma += numeros.charAt(tamanho - i) * pos--;
+      if (pos < 2) pos = 9;
     }
-  }
 
-  resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
-  if (resultado !== parseInt(digitos.charAt(1))) {
-    return false;
-  }
+    let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    if (resultado !== parseInt(digitos.charAt(0))) {
+      return { isValid: false, error: "Dígito verificador inválido" };
+    }
 
-  return true;
+    tamanho = tamanho + 1;
+    numeros = cleaned.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+
+    for (let i = tamanho; i >= 1; i--) {
+      soma += numeros.charAt(tamanho - i) * pos--;
+      if (pos < 2) pos = 9;
+    }
+
+    resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    if (resultado !== parseInt(digitos.charAt(1))) {
+      return { isValid: false, error: "Dígito verificador inválido" };
+    }
+
+    return { isValid: true, cleaned };
+  }
 }
 
-// Função para lidar com a pesquisa
-function handleSearch() {
-  const cnpjValue = cnpjInput.value.replace(/\D/g, "");
-
-  // Limpar mensagens de erro e resultados anteriores
-  clearError();
-  hideResult();
-
-  // Validar CNPJ
-  if (!cnpjValue) {
-    showError("Por favor, digite um CNPJ");
-    return;
+// =============================================
+// GERENCIADOR DE ESTADO
+// =============================================
+class AppState {
+  constructor() {
+    this.currentTheme = localStorage.getItem("theme") || "dark";
+    this.lastSearch = null;
+    this.isLoading = false;
+    this.retryCount = 0;
   }
 
-  if (cnpjValue.length !== 14) {
-    showError("CNPJ deve conter 14 dígitos");
-    return;
+  setTheme(theme) {
+    this.currentTheme = theme;
+    localStorage.setItem("theme", theme);
   }
 
-  if (!validateCNPJ(cnpjValue)) {
-    showError("CNPJ inválido");
-    return;
+  setLoading(loading) {
+    this.isLoading = loading;
   }
 
-  // Fazer a consulta
-  searchCNPJ(cnpjValue);
+  setLastSearch(cnpj) {
+    this.lastSearch = cnpj;
+  }
 }
 
-// Função para fazer a requisição à API
-async function searchCNPJ(cnpj) {
-  showLoading();
-  disableSearchButton(true);
+// =============================================
+// GERENCIADOR DE API
+// =============================================
+class ApiManager {
+  static async fetchCNPJ(cnpj) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-  try {
-    console.log("🔍 Fazendo requisição para:", `${API_BASE_URL}?cnpj=${cnpj}`);
-
-    const response = await fetch(`${API_BASE_URL}?cnpj=${cnpj}`);
-
-    console.log("📊 Status da resposta:", response.status);
-    console.log("✅ Response OK:", response.ok);
-
-    // Primeiro, ler a resposta como texto
-    const responseText = await response.text();
-    console.log("📄 Resposta (texto):", responseText.substring(0, 200));
-
-    if (!response.ok) {
-      // Se não é OK, tentar parsear como JSON para obter mensagem de erro
-      let errorMessage = `Erro ${response.status}`;
-
-      try {
-        const errorData = JSON.parse(responseText);
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        // Se não é JSON, usar o texto direto
-        if (
-          responseText.includes("<!DOCTYPE") ||
-          responseText.includes("<html")
-        ) {
-          errorMessage = "Servidor retornou página HTML inesperada";
-        } else if (responseText.trim()) {
-          errorMessage = responseText;
+    try {
+      const response = await fetch(`${CONFIG.API_BASE_URL}?cnpj=${cnpj}`, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
         }
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      throw new Error(errorMessage);
-    }
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.message || "Erro na consulta");
+      }
 
-    // Se response.ok é true, tentar parsear como JSON
-    let result;
+      return data.data;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        throw new Error("Tempo limite excedido na consulta");
+      }
+      
+      throw error;
+    }
+  }
+}
+
+// =============================================
+// FORMATADORES
+// =============================================
+class Formatters {
+  static CNPJ(cnpj) {
+    return CNPJValidator.format(cnpj);
+  }
+
+  static CEP(cep) {
+    if (!cep) return "";
+    const cleaned = cep.replace(/\D/g, "");
+    return cleaned.replace(/(\d{5})(\d{3})/, "$1-$2");
+  }
+
+  static phone(phone) {
+    if (!phone) return "";
+    const cleaned = phone.replace(/\D/g, "");
+    
+    if (cleaned.length === 11) {
+      return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+    } else if (cleaned.length === 10) {
+      return cleaned.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+    } else if (cleaned.length === 8) {
+      return cleaned.replace(/(\d{4})(\d{4})/, "$1-$2");
+    }
+    
+    return phone;
+  }
+
+  static date(dateString) {
+    if (!dateString) return "";
     try {
-      result = JSON.parse(responseText);
+      const date = new Date(dateString);
+      return date.toLocaleDateString("pt-BR");
     } catch (e) {
-      console.error("❌ Erro ao parsear JSON:", e);
-      throw new Error("Resposta da API inválida (não é JSON)");
+      console.warn("Erro ao formatar data:", dateString, e);
+      return dateString;
     }
+  }
 
-    if (result.error) {
-      throw new Error(result.message);
+  static dateTime(dateTimeString) {
+    if (!dateTimeString) return "";
+    try {
+      const date = new Date(dateTimeString);
+      return date.toLocaleString("pt-BR");
+    } catch (e) {
+      console.warn("Erro ao formatar data/hora:", dateTimeString, e);
+      return dateTimeString;
     }
+  }
 
-    console.log("✅ Dados recebidos com sucesso");
-    console.log("📦 Estrutura completa:", result.data);
-    displayData(result.data);
-  } catch (error) {
-    console.error("💥 Erro na consulta:", error);
-    showError(`Erro: ${error.message}`);
-  } finally {
-    hideLoading();
-    disableSearchButton(false);
+  static currency(value) {
+    if (!value) return "0,00";
+    try {
+      const number = typeof value === 'string' ? 
+        parseFloat(value.replace('R$', '').replace('.', '').replace(',', '.')) : 
+        parseFloat(value);
+      
+      return number.toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch (e) {
+      console.warn("Erro ao formatar moeda:", value, e);
+      return "0,00";
+    }
   }
 }
 
-// Função para exibir os dados no HTML
-function displayData(data) {
-  // Verificar se os dados básicos existem
-  if (!data || !data.taxId) {
-    showError("Dados da empresa não encontrados ou inválidos");
-    return;
+// =============================================
+// GERENCIADOR DE UI
+// =============================================
+class UIManager {
+  constructor() {
+    this.elements = this.initializeElements();
+    this.bindEvents();
   }
 
-  console.log("📦 Estrutura completa dos dados:", data);
+  initializeElements() {
+    return {
+      cnpjInput: document.getElementById("cnpjInput"),
+      searchBtn: document.getElementById("searchBtn"),
+      errorMessage: document.getElementById("errorMessage"),
+      loading: document.getElementById("loading"),
+      result: document.getElementById("result"),
+      partnersCard: document.getElementById("partnersCard"),
+      partnersList: document.getElementById("partnersList"),
+      themeToggle: document.getElementById("themeToggle"),
+      completeData: document.getElementById("completeData"),
+      
+      // Elementos de dados
+      companyName: document.getElementById("companyName"),
+      tradeName: document.getElementById("tradeName"),
+      cnpj: document.getElementById("cnpj"),
+      ie: document.getElementById("ie"),
+      status: document.getElementById("status"),
+      address: document.getElementById("address"),
+      cnae: document.getElementById("cnae"),
+      phones: document.getElementById("phones"),
+      email: document.getElementById("email")
+    };
+  }
 
-  // Dados básicos da empresa (Aba Principal)
-  companyName.textContent = data.company?.name || "Não informado";
-  tradeName.textContent = data.alias || data.company?.name || "Não informado";
-  cnpj.textContent = formatCNPJString(data.taxId) || "Não informado";
+  bindEvents() {
+    // Evento de pesquisa
+    this.elements.searchBtn.addEventListener("click", () => this.handleSearch());
+    
+    // Enter no input
+    this.elements.cnpjInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        this.handleSearch();
+      }
+    });
 
-  // Inscrição Estadual - Buscar no array registrations
-  const iePrincipal = getPrincipalIE(data.registrations);
-  ie.textContent = iePrincipal || "Não informado";
+    // Input com debounce e formatação automática
+    this.elements.cnpjInput.addEventListener("input", (e) => {
+      this.handleInputFormat(e);
+    });
 
-  // Situação cadastral com cor
-  const statusText = data.status?.text || "Não informado";
-  status.textContent = statusText;
-  status.className =
-    "value " +
-    (statusText.toLowerCase().includes("ativa") ? "status-active" : "");
+    // Toggle de tema
+    this.elements.themeToggle.addEventListener("click", () => this.toggleTheme());
 
-  // Endereço
-  const addressParts = [
-    data.address?.street,
-    data.address?.number,
-    data.address?.details,
-    data.address?.district,
-    data.address?.city,
-    data.address?.state,
-  ]
-    .filter((part) => part)
-    .join(", ");
+    // Tabs
+    document.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", (e) => {
+        this.switchTab(e.target.dataset.tab);
+      });
+    });
 
-  const zipCode = data.address?.zip
-    ? ` - CEP: ${formatCEP(data.address.zip)}`
-    : "";
-  address.textContent = addressParts + zipCode || "Não informado";
+    // Focar no input ao carregar
+    this.elements.cnpjInput.focus();
+  }
 
-  // CNAE Principal
-  cnae.textContent = data.mainActivity?.text || "Não informado";
-
-  // Telefones
-  const phoneNumbers =
-    data.phones
-      ?.map((phone) => {
-        if (phone.area && phone.number) {
-          return formatPhone(`${phone.area}${phone.number}`);
-        }
-        return phone.number;
-      })
-      .join(", ") || "Não informado";
-  phones.textContent = phoneNumbers;
-
-  // E-mail
-  const primaryEmail =
-    data.emails?.find((email) => email.ownership === "CORPORATE") ||
-    data.emails?.[0];
-  email.textContent = primaryEmail?.address || "Não informado";
-
-  // Sócios e Administradores
-  displayPartners(data.company?.members);
-
-  // Dados completos (Aba Completa)
-  displayCompleteData(data);
-
-  // Exibir resultados
-  showResult();
-}
-
-// Função para obter a Inscrição Estadual principal
-function getPrincipalIE(registrations) {
-  if (!registrations || !Array.isArray(registrations)) return null;
-
-  // Buscar IE Normal primeiro
-  const ieNormal = registrations.find((reg) => reg.type?.id === 1);
-  if (ieNormal) return `${ieNormal.number} (${ieNormal.state})`;
-
-  // Se não encontrar, retornar a primeira
-  const primeira = registrations[0];
-  if (primeira) return `${primeira.number} (${primeira.state})`;
-
-  return null;
-}
-
-// Função para exibir dados completos
-function displayCompleteData(data) {
-  completeData.innerHTML = "";
-
-  if (!data) return;
-
-  // Função auxiliar para criar itens de informação
-  const createInfoItem = (label, value) => {
-    if (
-      value === undefined ||
-      value === null ||
-      value === "" ||
-      value === "Não informado"
-    )
-      return null;
-
-    const item = document.createElement("div");
-    item.className = "info-item";
-
-    const labelSpan = document.createElement("span");
-    labelSpan.className = "label";
-    labelSpan.textContent = label;
-
-    const valueSpan = document.createElement("span");
-    valueSpan.className = "value";
-
-    // Se o valor for um array, formatar como lista
-    if (Array.isArray(value)) {
-      if (value.length === 0) return null;
-      valueSpan.innerHTML = value.map((item) => `• ${item}`).join("<br>");
+  handleInputFormat(e) {
+    const input = e.target;
+    const cursorPosition = input.selectionStart;
+    const originalLength = input.value.length;
+    
+    // Formata o CNPJ enquanto digita
+    let value = input.value.replace(/\D/g, "");
+    
+    if (value.length <= 14) {
+      if (value.length > 12) {
+        value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+      } else if (value.length > 8) {
+        value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{0,4})/, "$1.$2.$3/$4");
+      } else if (value.length > 5) {
+        value = value.replace(/(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
+      } else if (value.length > 2) {
+        value = value.replace(/(\d{2})(\d{0,3})/, "$1.$2");
+      }
     } else {
-      valueSpan.textContent = String(value);
+      value = value.substring(0, 14);
+      value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    }
+    
+    input.value = value;
+    
+    // Mantém a posição do cursor
+    const newLength = input.value.length;
+    const lengthDiff = newLength - originalLength;
+    const newCursorPosition = cursorPosition + lengthDiff;
+    
+    input.setSelectionRange(newCursorPosition, newCursorPosition);
+  }
+
+  async handleSearch() {
+    const cnpjValue = this.elements.cnpjInput.value;
+    
+    this.clearError();
+    this.hideResult();
+
+    const validation = CNPJValidator.validate(cnpjValue);
+    
+    if (!validation.isValid) {
+      this.showError(validation.error);
+      return;
     }
 
-    item.appendChild(labelSpan);
-    item.appendChild(valueSpan);
-    return item;
-  };
-
-  // Dados básicos
-  const basicFields = [
-    { label: "CNPJ", value: formatCNPJString(data.taxId) },
-    { label: "Razão Social", value: data.company?.name },
-    { label: "Nome Fantasia", value: data.alias },
-    { label: "Data de Abertura", value: formatDate(data.founded) },
-    {
-      label: "Data da Última Atualização",
-      value: formatDateTime(data.updated),
-    },
-    { label: "Situação Cadastral", value: data.status?.text },
-    { label: "Data da Situação", value: formatDate(data.statusDate) },
-    { label: "Matriz/Filial", value: data.head ? "Matriz" : "Filial" },
-  ];
-
-  basicFields.forEach((field) => {
-    const item = createInfoItem(field.label, field.value);
-    if (item) completeData.appendChild(item);
-  });
-
-  // Natureza Jurídica e Porte
-  if (data.company?.nature) {
-    const item = createInfoItem(
-      "Natureza Jurídica",
-      `${data.company.nature.id} - ${data.company.nature.text}`
-    );
-    if (item) completeData.appendChild(item);
+    await this.searchCNPJ(validation.cleaned);
   }
 
-  if (data.company?.size) {
-    const item = createInfoItem(
-      "Porte da Empresa",
-      `${data.company.size.text} (${data.company.size.acronym})`
-    );
-    if (item) completeData.appendChild(item);
-  }
+  async searchCNPJ(cnpj) {
+    this.showLoading();
+    this.disableSearchButton(true);
+    appState.setLoading(true);
 
-  // Capital Social
-  if (data.company?.equity) {
-    const item = createInfoItem(
-      "Capital Social",
-      `R$ ${formatCurrency(data.company.equity)}`
-    );
-    if (item) completeData.appendChild(item);
-  }
-
-  // Regimes Especiais
-  const regimes = [];
-  if (data.company?.simples?.optant) {
-    regimes.push(
-      `Simples Nacional desde ${formatDate(data.company.simples.since)}`
-    );
-  }
-  if (data.company?.simei?.optant) {
-    regimes.push(`MEI desde ${formatDate(data.company.simei.since)}`);
-  }
-  if (regimes.length > 0) {
-    const item = createInfoItem("Regimes Especiais", regimes);
-    if (item) completeData.appendChild(item);
-  }
-
-  // Endereço completo
-  if (data.address) {
-    const addressFields = [
-      { label: "Logradouro", value: data.address.street },
-      { label: "Número", value: data.address.number },
-      { label: "Complemento", value: data.address.details },
-      { label: "Bairro", value: data.address.district },
-      { label: "Cidade", value: data.address.city },
-      { label: "Estado", value: data.address.state },
-      { label: "CEP", value: formatCEP(data.address.zip) },
-      { label: "País", value: data.address.country?.name },
-      { label: "Código Município", value: data.address.municipality },
-    ];
-
-    addressFields.forEach((field) => {
-      const item = createInfoItem(field.label, field.value);
-      if (item) completeData.appendChild(item);
-    });
-  }
-
-  // Contatos
-  if (data.phones && data.phones.length > 0) {
-    const phonesText = data.phones.map((phone) => {
-      const tipo = phone.type === "LANDLINE" ? "Fixo" : "Celular";
-      return `${tipo}: ${
-        phone.area && phone.number
-          ? formatPhone(`${phone.area}${phone.number}`)
-          : phone.number
-      }`;
-    });
-    const item = createInfoItem("Telefones", phonesText);
-    if (item) completeData.appendChild(item);
-  }
-
-  if (data.emails && data.emails.length > 0) {
-    const emailsText = data.emails.map((email) => {
-      const tipo = email.ownership === "CORPORATE" ? "Corporativo" : "Outro";
-      return `${tipo}: ${email.address}`;
-    });
-    const item = createInfoItem("E-mails", emailsText);
-    if (item) completeData.appendChild(item);
-  }
-
-  // Atividades Econômicas
-  if (data.mainActivity) {
-    const item = createInfoItem(
-      "CNAE Principal",
-      `${data.mainActivity.id} - ${data.mainActivity.text}`
-    );
-    if (item) completeData.appendChild(item);
-  }
-
-  if (data.sideActivities && data.sideActivities.length > 0) {
-    const secondaryActivities = data.sideActivities.map(
-      (activity) => `${activity.id} - ${activity.text}`
-    );
-    const item = createInfoItem("CNAEs Secundários", secondaryActivities);
-    if (item) completeData.appendChild(item);
-  }
-
-  // Inscrições Estaduais
-  if (data.registrations && data.registrations.length > 0) {
-    const ies = data.registrations.map((reg) => {
-      const status = reg.enabled ? "✅" : "❌";
-      return `${status} ${reg.number} - ${reg.state} (${reg.type?.text}) - ${reg.status?.text}`;
-    });
-    const item = createInfoItem("Inscrições Estaduais", ies);
-    if (item) completeData.appendChild(item);
-  }
-
-  // SUFRAMA (se existir)
-  if (data.suframa && data.suframa.length > 0) {
-    const suframaItems = data.suframa.map((suf) => {
-      const status = suf.approved ? "✅ Aprovado" : "❌ Pendente";
-      return `Nº: ${suf.number} - ${status} - Desde: ${formatDate(suf.since)}`;
-    });
-    const item = createInfoItem("Registro SUFRAMA", suframaItems);
-    if (item) completeData.appendChild(item);
-
-    // Incentivos fiscais da SUFRAMA
-    if (data.suframa[0].incentives && data.suframa[0].incentives.length > 0) {
-      const incentivos = data.suframa[0].incentives.map(
-        (inc) => `${inc.tribute}: ${inc.benefit} - ${inc.purpose}`
-      );
-      const itemInc = createInfoItem("Incentivos Fiscais SUFRAMA", incentivos);
-      if (itemInc) completeData.appendChild(itemInc);
-    }
-  }
-
-  // Sócios e Administradores
-  if (data.company?.members && data.company.members.length > 0) {
-    const socios = data.company.members.map((member) => {
-      const since = member.since ? ` desde ${formatDate(member.since)}` : "";
-      return `${member.person?.name} - ${member.role?.text}${since}`;
-    });
-    const item = createInfoItem("Sócios e Administradores", socios);
-    if (item) completeData.appendChild(item);
-  }
-}
-
-// Função para exibir os sócios na aba principal
-function displayPartners(members) {
-  partnersList.innerHTML = "";
-
-  if (!members || members.length === 0) {
-    partnersCard.classList.add("hidden");
-    return;
-  }
-
-  console.log("👥 Sócios encontrados:", members);
-
-  // Ordenar por data (mais recente primeiro) - CORREÇÃO AQUI
-  const sortedMembers = [...members].sort((a, b) => {
     try {
-      const dateA = a.since ? new Date(a.since) : new Date(0);
-      const dateB = b.since ? new Date(b.since) : new Date(0);
-      return dateB - dateA;
-    } catch (e) {
-      return 0;
+      console.log("🔍 Iniciando consulta para CNPJ:", cnpj);
+      
+      const data = await ApiManager.fetchCNPJ(cnpj);
+      console.log("✅ Dados recebidos com sucesso");
+
+      this.displayData(data);
+      appState.setLastSearch(cnpj);
+      appState.retryCount = 0;
+      
+    } catch (error) {
+      console.error("💥 Erro na consulta:", error);
+      
+      if (appState.retryCount < CONFIG.MAX_RETRIES) {
+        appState.retryCount++;
+        console.log(`🔄 Tentativa ${appState.retryCount} de ${CONFIG.MAX_RETRIES}`);
+        
+        await this.delay(CONFIG.RETRY_DELAY);
+        return this.searchCNPJ(cnpj);
+      }
+      
+      this.showError(this.getErrorMessage(error));
+      appState.retryCount = 0;
+    } finally {
+      this.hideLoading();
+      this.disableSearchButton(false);
+      appState.setLoading(false);
     }
-  });
+  }
 
-  // Limitar a 6 sócios na aba principal
-  const displayedMembers = sortedMembers.slice(0, 6);
+  getErrorMessage(error) {
+    const message = error.message || "Erro desconhecido";
+    
+    if (message.includes("Tempo limite")) {
+      return "A consulta demorou muito tempo. Tente novamente.";
+    } else if (message.includes("404") || message.includes("não encontrada")) {
+      return "Empresa não encontrada para o CNPJ informado.";
+    } else if (message.includes("429") || message.includes("Limite")) {
+      return "Limite de consultas excedido. Tente novamente em alguns instantes.";
+    } else if (message.includes("Failed to fetch")) {
+      return "Erro de conexão. Verifique sua internet e tente novamente.";
+    }
+    
+    return `Erro: ${message}`;
+  }
 
-  displayedMembers.forEach((member) => {
+  displayData(data) {
+    if (!data || !data.taxId) {
+      this.showError("Dados da empresa não encontrados ou inválidos");
+      return;
+    }
+
+    console.log("📊 Exibindo dados:", data);
+
+    // Dados básicos
+    this.setElementText(this.elements.companyName, data.company?.name);
+    this.setElementText(this.elements.tradeName, data.alias || data.company?.name);
+    this.setElementText(this.elements.cnpj, Formatters.CNPJ(data.taxId));
+    
+    // Inscrição Estadual
+    const iePrincipal = this.getPrincipalIE(data.registrations);
+    this.setElementText(this.elements.ie, iePrincipal);
+
+    // Situação cadastral
+    const statusText = data.status?.text || "Não informado";
+    this.setElementText(this.elements.status, statusText);
+    this.elements.status.className = `value ${statusText.toLowerCase().includes("ativa") ? "status-active" : "status-inactive"}`;
+
+    // Endereço
+    const address = this.formatAddress(data.address);
+    this.setElementText(this.elements.address, address);
+
+    // CNAE Principal
+    this.setElementText(this.elements.cnae, data.mainActivity?.text);
+
+    // Telefones
+    const phones = this.formatPhones(data.phones);
+    this.setElementText(this.elements.phones, phones);
+
+    // E-mail
+    const email = this.getPrimaryEmail(data.emails);
+    this.setElementText(this.elements.email, email);
+
+    // Sócios e dados completos
+    this.displayPartners(data.company?.members);
+    this.displayCompleteData(data);
+
+    this.showResult();
+  }
+
+  getPrincipalIE(registrations) {
+    if (!registrations || !Array.isArray(registrations)) return "Não informado";
+
+    const ieNormal = registrations.find(reg => reg.type?.id === 1);
+    if (ieNormal) return `${ieNormal.number} (${ieNormal.state})`;
+
+    const primeira = registrations[0];
+    if (primeira) return `${primeira.number} (${primeira.state})`;
+
+    return "Não informado";
+  }
+
+  formatAddress(address) {
+    if (!address) return "Não informado";
+
+    const addressParts = [
+      address.street,
+      address.number,
+      address.details,
+      address.district,
+      address.city,
+      address.state
+    ].filter(part => part && part.trim() !== "");
+
+    const formattedAddress = addressParts.join(", ");
+    const zipCode = address.zip ? ` - CEP: ${Formatters.CEP(address.zip)}` : "";
+
+    return formattedAddress + zipCode || "Não informado";
+  }
+
+  formatPhones(phones) {
+    if (!phones || !Array.isArray(phones) || phones.length === 0) {
+      return "Não informado";
+    }
+
+    const formattedPhones = phones.map(phone => {
+      if (phone.area && phone.number) {
+        return Formatters.phone(`${phone.area}${phone.number}`);
+      }
+      return phone.number || "";
+    }).filter(phone => phone !== "");
+
+    return formattedPhones.join(", ") || "Não informado";
+  }
+
+  getPrimaryEmail(emails) {
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return "Não informado";
+    }
+
+    const corporateEmail = emails.find(email => email.ownership === "CORPORATE");
+    const firstEmail = emails[0];
+
+    return (corporateEmail || firstEmail)?.address || "Não informado";
+  }
+
+  displayPartners(members) {
+    this.elements.partnersList.innerHTML = "";
+
+    if (!members || members.length === 0) {
+      this.elements.partnersCard.classList.add("hidden");
+      return;
+    }
+
+    console.log("👥 Exibindo sócios:", members);
+
+    // Ordenar por data (mais recente primeiro)
+    const sortedMembers = [...members].sort((a, b) => {
+      try {
+        const dateA = a.since ? new Date(a.since) : new Date(0);
+        const dateB = b.since ? new Date(b.since) : new Date(0);
+        return dateB - dateA;
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    // Limitar a 6 sócios na aba principal
+    const displayedMembers = sortedMembers.slice(0, 6);
+
+    displayedMembers.forEach(member => {
+      const partnerItem = this.createPartnerElement(member);
+      this.elements.partnersList.appendChild(partnerItem);
+    });
+
+    // Mostrar contador se houver mais sócios
+    if (sortedMembers.length > 6) {
+      const morePartners = document.createElement("div");
+      morePartners.className = "partner-more";
+      morePartners.textContent = `+ ${sortedMembers.length - 6} outros sócios...`;
+      this.elements.partnersList.appendChild(morePartners);
+    }
+
+    this.elements.partnersCard.classList.remove("hidden");
+  }
+
+  createPartnerElement(member) {
     const partnerItem = document.createElement("div");
     partnerItem.className = "partner-item";
+    partnerItem.setAttribute("role", "listitem");
 
     const partnerName = document.createElement("div");
     partnerName.className = "partner-name";
@@ -555,151 +528,449 @@ function displayPartners(members) {
 
     const partnerSince = document.createElement("div");
     partnerSince.className = "partner-qualification";
-    partnerSince.textContent = `Desde: ${
-      formatDate(member.since) || "Data não informada"
-    }`;
+    partnerSince.textContent = `Desde: ${Formatters.date(member.since) || "Data não informada"}`;
 
     const partnerAge = document.createElement("div");
     partnerAge.className = "partner-qualification";
-    partnerAge.textContent = `Faixa Etária: ${
-      member.person?.age || "Não informada"
-    }`;
+    partnerAge.textContent = `Faixa Etária: ${member.person?.age || "Não informada"}`;
 
     partnerItem.appendChild(partnerName);
     partnerItem.appendChild(partnerRole);
     partnerItem.appendChild(partnerSince);
     partnerItem.appendChild(partnerAge);
 
-    partnersList.appendChild(partnerItem);
-  });
-
-  // Mostrar contador se houver mais sócios
-  if (sortedMembers.length > 6) {
-    const morePartners = document.createElement("div");
-    morePartners.className = "partner-more";
-    morePartners.textContent = `+ ${sortedMembers.length - 6} outros sócios...`;
-    morePartners.style.textAlign = "center";
-    morePartners.style.padding = "10px";
-    morePartners.style.color = "var(--text-secondary)";
-    morePartners.style.fontStyle = "italic";
-    partnersList.appendChild(morePartners);
+    return partnerItem;
   }
 
-  partnersCard.classList.remove("hidden");
-}
+  displayCompleteData(data) {
+    this.elements.completeData.innerHTML = "";
 
-// Função para formatar CNPJ como string
-function formatCNPJString(cnpj) {
-  if (!cnpj) return "";
-  cnpj = cnpj.replace(/\D/g, "");
-  return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-}
+    if (!data) {
+      this.showEmptyState(this.elements.completeData, "Nenhum dado completo disponível");
+      return;
+    }
 
-// Função para formatar CEP
-function formatCEP(cep) {
-  if (!cep) return "";
-  cep = cep.replace(/\D/g, "");
-  return cep.replace(/(\d{5})(\d{3})/, "$1-$2");
-}
+    const sections = [
+      this.createBasicInfoSection(data),
+      this.createCompanyInfoSection(data),
+      this.createAddressSection(data),
+      this.createContactSection(data),
+      this.createActivitiesSection(data),
+      this.createRegistrationsSection(data),
+      this.createPartnersSection(data)
+    ];
 
-// Função para formatar telefone
-function formatPhone(phone) {
-  if (!phone) return "";
-  phone = phone.replace(/\D/g, "");
-  if (phone.length === 11) {
-    return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-  } else if (phone.length === 10) {
-    return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-  } else if (phone.length === 8) {
-    return phone.replace(/(\d{4})(\d{4})/, "$1-$2");
+    sections.forEach(section => {
+      if (section) {
+        this.elements.completeData.appendChild(section);
+      }
+    });
+
+    if (this.elements.completeData.children.length === 0) {
+      this.showEmptyState(this.elements.completeData, "Nenhum dado completo disponível");
+    }
   }
-  return phone;
-}
 
-// Função para formatar data
-function formatDate(dateString) {
-  if (!dateString) return "";
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR");
-  } catch (e) {
-    return dateString;
+  createBasicInfoSection(data) {
+    const fields = [
+      { label: "CNPJ", value: Formatters.CNPJ(data.taxId) },
+      { label: "Razão Social", value: data.company?.name },
+      { label: "Nome Fantasia", value: data.alias },
+      { label: "Data de Abertura", value: Formatters.date(data.founded) },
+      { label: "Data da Última Atualização", value: Formatters.dateTime(data.updated) },
+      { label: "Situação Cadastral", value: data.status?.text },
+      { label: "Data da Situação", value: Formatters.date(data.statusDate) },
+      { label: "Matriz/Filial", value: data.head ? "Matriz" : "Filial" }
+    ];
+
+    return this.createSection("Informações Básicas", fields);
+  }
+
+  createCompanyInfoSection(data) {
+    const fields = [];
+
+    if (data.company?.nature) {
+      fields.push({
+        label: "Natureza Jurídica",
+        value: `${data.company.nature.id} - ${data.company.nature.text}`
+      });
+    }
+
+    if (data.company?.size) {
+      fields.push({
+        label: "Porte da Empresa",
+        value: `${data.company.size.text} (${data.company.size.acronym})`
+      });
+    }
+
+    if (data.company?.equity) {
+      fields.push({
+        label: "Capital Social",
+        value: `R$ ${Formatters.currency(data.company.equity)}`
+      });
+    }
+
+    // Regimes Especiais
+    const regimes = [];
+    if (data.company?.simples?.optant) {
+      regimes.push(`Simples Nacional desde ${Formatters.date(data.company.simples.since)}`);
+    }
+    if (data.company?.simei?.optant) {
+      regimes.push(`MEI desde ${Formatters.date(data.company.simei.since)}`);
+    }
+    if (regimes.length > 0) {
+      fields.push({ label: "Regimes Especiais", value: regimes });
+    }
+
+    return fields.length > 0 ? this.createSection("Informações da Empresa", fields) : null;
+  }
+
+  createAddressSection(data) {
+    if (!data.address) return null;
+
+    const fields = [
+      { label: "Logradouro", value: data.address.street },
+      { label: "Número", value: data.address.number },
+      { label: "Complemento", value: data.address.details },
+      { label: "Bairro", value: data.address.district },
+      { label: "Cidade", value: data.address.city },
+      { label: "Estado", value: data.address.state },
+      { label: "CEP", value: Formatters.CEP(data.address.zip) },
+      { label: "País", value: data.address.country?.name },
+      { label: "Código Município", value: data.address.municipality }
+    ].filter(field => field.value);
+
+    return fields.length > 0 ? this.createSection("Endereço", fields) : null;
+  }
+
+  createContactSection(data) {
+    const fields = [];
+
+    // Telefones
+    if (data.phones && data.phones.length > 0) {
+      const phones = data.phones.map(phone => {
+        const tipo = phone.type === "LANDLINE" ? "Fixo" : "Celular";
+        return `${tipo}: ${phone.area && phone.number ? 
+          Formatters.phone(`${phone.area}${phone.number}`) : 
+          phone.number}`;
+      }).filter(phone => !phone.includes("undefined"));
+      
+      if (phones.length > 0) {
+        fields.push({ label: "Telefones", value: phones });
+      }
+    }
+
+    // E-mails
+    if (data.emails && data.emails.length > 0) {
+      const emails = data.emails.map(email => {
+        const tipo = email.ownership === "CORPORATE" ? "Corporativo" : "Outro";
+        return `${tipo}: ${email.address}`;
+      });
+      fields.push({ label: "E-mails", value: emails });
+    }
+
+    return fields.length > 0 ? this.createSection("Contatos", fields) : null;
+  }
+
+  createActivitiesSection(data) {
+    const fields = [];
+
+    if (data.mainActivity) {
+      fields.push({
+        label: "CNAE Principal",
+        value: `${data.mainActivity.id} - ${data.mainActivity.text}`
+      });
+    }
+
+    if (data.sideActivities && data.sideActivities.length > 0) {
+      const secondaryActivities = data.sideActivities.map(
+        activity => `${activity.id} - ${activity.text}`
+      );
+      fields.push({ label: "CNAEs Secundários", value: secondaryActivities });
+    }
+
+    return fields.length > 0 ? this.createSection("Atividades Econômicas", fields) : null;
+  }
+
+  createRegistrationsSection(data) {
+    const fields = [];
+
+    if (data.registrations && data.registrations.length > 0) {
+      const ies = data.registrations.map(reg => {
+        const status = reg.enabled ? "✅" : "❌";
+        return `${status} ${reg.number} - ${reg.state} (${reg.type?.text}) - ${reg.status?.text}`;
+      });
+      fields.push({ label: "Inscrições Estaduais", value: ies });
+    }
+
+    // SUFRAMA
+    if (data.suframa && data.suframa.length > 0) {
+      const suframaItems = data.suframa.map(suf => {
+        const status = suf.approved ? "✅ Aprovado" : "❌ Pendente";
+        return `Nº: ${suf.number} - ${status} - Desde: ${Formatters.date(suf.since)}`;
+      });
+      fields.push({ label: "Registro SUFRAMA", value: suframaItems });
+
+      // Incentivos fiscais da SUFRAMA
+      if (data.suframa[0].incentives && data.suframa[0].incentives.length > 0) {
+        const incentivos = data.suframa[0].incentives.map(
+          inc => `${inc.tribute}: ${inc.benefit} - ${inc.purpose}`
+        );
+        fields.push({ label: "Incentivos Fiscais SUFRAMA", value: incentivos });
+      }
+    }
+
+    return fields.length > 0 ? this.createSection("Registros e Inscrições", fields) : null;
+  }
+
+  createPartnersSection(data) {
+    if (!data.company?.members || data.company.members.length === 0) return null;
+
+    const socios = data.company.members.map(member => {
+      const since = member.since ? ` desde ${Formatters.date(member.since)}` : "";
+      return `${member.person?.name} - ${member.role?.text}${since}`;
+    });
+
+    return this.createSection("Sócios e Administradores", [
+      { label: "Lista Completa", value: socios }
+    ]);
+  }
+
+  createSection(title, fields) {
+    const validFields = fields.filter(field => 
+      field.value !== undefined && 
+      field.value !== null && 
+      field.value !== "" && 
+      field.value !== "Não informado" &&
+      !(Array.isArray(field.value) && field.value.length === 0)
+    );
+
+    if (validFields.length === 0) return null;
+
+    const section = document.createElement("div");
+    section.className = "info-section";
+
+    const sectionTitle = document.createElement("h3");
+    sectionTitle.className = "section-title";
+    sectionTitle.textContent = title;
+    section.appendChild(sectionTitle);
+
+    validFields.forEach(field => {
+      const item = this.createInfoItem(field.label, field.value);
+      if (item) section.appendChild(item);
+    });
+
+    return section;
+  }
+
+  createInfoItem(label, value) {
+    const item = document.createElement("div");
+    item.className = "info-item";
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "label";
+    labelSpan.textContent = label;
+
+    const valueSpan = document.createElement("span");
+    valueSpan.className = "value";
+
+    if (Array.isArray(value)) {
+      valueSpan.innerHTML = value.map(item => `• ${this.escapeHtml(item)}`).join("<br>");
+    } else {
+      valueSpan.textContent = String(value);
+    }
+
+    item.appendChild(labelSpan);
+    item.appendChild(valueSpan);
+    return item;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  showEmptyState(container, message) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📄</div>
+        <h3>Sem dados</h3>
+        <p>${message}</p>
+      </div>
+    `;
+  }
+
+  setElementText(element, text) {
+    element.textContent = text || "Não informado";
+  }
+
+  // Controles de UI
+  showLoading() {
+    this.elements.loading.classList.remove("hidden");
+    this.elements.loading.setAttribute("aria-busy", "true");
+  }
+
+  hideLoading() {
+    this.elements.loading.classList.add("hidden");
+    this.elements.loading.setAttribute("aria-busy", "false");
+  }
+
+  showResult() {
+    this.elements.result.classList.remove("hidden");
+    this.elements.result.setAttribute("aria-live", "polite");
+    
+    // Focar na primeira aba para acessibilidade
+    const firstTab = document.querySelector('.tab-button');
+    if (firstTab) firstTab.focus();
+  }
+
+  hideResult() {
+    this.elements.result.classList.add("hidden");
+  }
+
+  showError(message) {
+    this.elements.errorMessage.textContent = message;
+    this.elements.errorMessage.classList.remove("hidden");
+    
+    // Focar na mensagem de erro para acessibilidade
+    this.elements.errorMessage.focus();
+  }
+
+  clearError() {
+    this.elements.errorMessage.textContent = "";
+    this.elements.errorMessage.classList.add("hidden");
+  }
+
+  disableSearchButton(disabled) {
+    this.elements.searchBtn.disabled = disabled;
+    const buttonText = this.elements.searchBtn.querySelector(".button-text");
+    const buttonLoading = this.elements.searchBtn.querySelector(".button-loading");
+
+    if (disabled) {
+      buttonText.classList.add("hidden");
+      buttonLoading.classList.remove("hidden");
+      this.elements.searchBtn.setAttribute("aria-label", "Consultando...");
+    } else {
+      buttonText.classList.remove("hidden");
+      buttonLoading.classList.add("hidden");
+      this.elements.searchBtn.setAttribute("aria-label", "Pesquisar CNPJ");
+    }
+  }
+
+  switchTab(tabName) {
+    // Atualizar botões das tabs
+    document.querySelectorAll(".tab-button").forEach(button => {
+      button.classList.remove("active");
+      button.setAttribute("aria-selected", "false");
+    });
+    
+    const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
+    activeButton.classList.add("active");
+    activeButton.setAttribute("aria-selected", "true");
+
+    // Atualizar conteúdo das tabs
+    document.querySelectorAll(".tab-pane").forEach(pane => {
+      pane.classList.remove("active");
+    });
+    
+    const activePane = document.getElementById(`tab-${tabName}`);
+    activePane.classList.add("active");
+  }
+
+  toggleTheme() {
+    const body = document.body;
+    const isDarkMode = body.classList.contains("dark-mode");
+    const themeIcon = this.elements.themeToggle.querySelector(".theme-icon");
+
+    if (isDarkMode) {
+      body.classList.remove("dark-mode");
+      themeIcon.textContent = "🌙";
+      appState.setTheme("light");
+    } else {
+      body.classList.add("dark-mode");
+      themeIcon.textContent = "☀️";
+      appState.setTheme("dark");
+    }
+
+    // Anúncio para leitores de tela
+    this.announceToScreenReader(`Modo ${isDarkMode ? 'claro' : 'escuro'} ativado`);
+  }
+
+  announceToScreenReader(message) {
+    const announcer = document.getElementById('aria-announcer') || this.createAriaAnnouncer();
+    announcer.textContent = message;
+  }
+
+  createAriaAnnouncer() {
+    const announcer = document.createElement('div');
+    announcer.id = 'aria-announcer';
+    announcer.className = 'sr-only';
+    announcer.setAttribute('aria-live', 'polite');
+    announcer.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(announcer);
+    return announcer;
+  }
+
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
-// Função para formatar data e hora
-function formatDateTime(dateTimeString) {
-  if (!dateTimeString) return "";
-  try {
-    const date = new Date(dateTimeString);
-    return date.toLocaleString("pt-BR");
-  } catch (e) {
-    return dateTimeString;
-  }
+// =============================================
+// INICIALIZAÇÃO DA APLICAÇÃO
+// =============================================
+let appState;
+let uiManager;
+
+function initializeApp() {
+  console.log("🚀 Inicializando CNPJ Finder...");
+  
+  appState = new AppState();
+  uiManager = new UIManager();
+  
+  loadSavedTheme();
+  setupServiceWorker();
+  
+  console.log("✅ Aplicação inicializada com sucesso");
 }
 
-// Função para formatar moeda
-function formatCurrency(value) {
-  if (!value) return "0,00";
-  return parseFloat(value).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-// Funções auxiliares para exibir/ocultar elementos
-function showLoading() {
-  loading.classList.remove("hidden");
-}
-
-function hideLoading() {
-  loading.classList.add("hidden");
-}
-
-function showResult() {
-  result.classList.remove("hidden");
-}
-
-function hideResult() {
-  result.classList.add("hidden");
-  partnersCard.classList.add("hidden");
-}
-
-function showError(message) {
-  errorMessage.textContent = message;
-  errorMessage.classList.remove("hidden");
-}
-
-function clearError() {
-  errorMessage.textContent = "";
-  errorMessage.classList.add("hidden");
-}
-
-function disableSearchButton(disabled) {
-  searchBtn.disabled = disabled;
-  const buttonText = searchBtn.querySelector(".button-text");
-  const buttonLoading = searchBtn.querySelector(".button-loading");
-
-  if (disabled) {
-    buttonText.classList.add("hidden");
-    buttonLoading.classList.remove("hidden");
-  } else {
-    buttonText.classList.remove("hidden");
-    buttonLoading.classList.add("hidden");
-  }
-}
-
-// Carregar tema salvo ao iniciar
 function loadSavedTheme() {
   const savedTheme = localStorage.getItem("theme");
+  const body = document.body;
+  const themeIcon = document.querySelector(".theme-icon");
+
   if (savedTheme === "light") {
-    document.body.classList.remove("dark-mode");
-    themeToggle.querySelector(".theme-icon").textContent = "🌙";
+    body.classList.remove("dark-mode");
+    themeIcon.textContent = "🌙";
   } else {
-    document.body.classList.add("dark-mode");
-    themeToggle.querySelector(".theme-icon").textContent = "☀️";
+    body.classList.add("dark-mode");
+    themeIcon.textContent = "☀️";
   }
 }
 
-// Inicializar tema ao carregar a página
-loadSavedTheme();
+function setupServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('✅ Service Worker registrado:', registration);
+        })
+        .catch(error => {
+          console.log('❌ Falha no Service Worker:', error);
+        });
+    });
+  }
+}
+
+// Inicializar quando o DOM estiver pronto
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  initializeApp();
+}
+
+// Exportar para testes (se necessário)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { CNPJValidator, Formatters, ApiManager };
+}

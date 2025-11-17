@@ -1,13 +1,32 @@
 {
   "name": "consulta-cnpj",
   "version": "1.0.0",
-  "description": "Sistema de consulta de CNPJ",
+  "description": "Sistema de consulta de CNPJ com interface moderna e acessível",
   "type": "module",
+  "author": "Romulo Garcia",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/itsromulogarcia/consulta-cnpj"
+  },
+  "keywords": [
+    "cnpj",
+    "consulta",
+    "api",
+    "empresas"
+  ],
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "start": "vercel start",
+    "lint": "eslint . --ext .js",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@vercel/node": "^2.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
   },
   "engines": {
     "node": ">=18.x"

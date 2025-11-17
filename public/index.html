@@ -3,7 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CNPJ Finder</title>
+    <meta name="description" content="Consulte CNPJ de empresas brasileiras de forma rápida e gratuita. Encontre razão social, endereço, telefone e muito mais." />
+    <meta name="keywords" content="cnpj, consulta cnpj, empresas brasileiras, cadastro nacional, cnpj finder" />
+    <meta name="author" content="Romulo Garcia" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="CNPJ Finder - Consulta Gratuita de CNPJ" />
+    <meta property="og:description" content="Consulte CNPJ de empresas brasileiras de forma rápida e gratuita" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cnpj-finder.vercel.app" />
+    <meta property="og:image" content="https://cnpj-finder.vercel.app/og-image.jpg" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CNPJ Finder - Consulta Gratuita de CNPJ" />
+    <meta name="twitter:description" content="Consulte CNPJ de empresas brasileiras de forma rápida e gratuita" />
+    
+    <title>CNPJ Finder - Consulta Gratuita de CNPJ</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,68 +27,116 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    
     <!-- Favicon -->
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff8f00'><path d='M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z'/></svg>"
-    />
-    <link
-      rel="apple-touch-icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff8f00'><path d='M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z'/></svg>"
-    />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style" />
+    <link rel="preload" href="script.js" as="script" />
   </head>
   <body class="dark-mode">
     <div class="container">
-      <header class="header">
+      <header class="header" role="banner">
         <div class="header-top">
           <h1>CNPJ Finder</h1>
-          <button id="themeToggle" class="theme-toggle">
-            <span class="theme-icon">🌙</span>
+          <button 
+            id="themeToggle" 
+            class="theme-toggle"
+            aria-label="Alternar entre modo claro e escuro"
+            title="Alternar tema"
+          >
+            <span class="theme-icon" aria-hidden="true">🌙</span>
           </button>
         </div>
         <p>Consulte aqui o CNPJ da empresa desejada</p>
       </header>
 
-      <main class="main">
-        <section class="search-section">
+      <main class="main" role="main">
+        <section class="search-section" aria-labelledby="search-title">
+          <h2 id="search-title" class="sr-only">Consulta de CNPJ</h2>
+          
           <div class="input-group">
             <input
               type="text"
               id="cnpjInput"
-              placeholder="Digite o CNPJ (apenas números)"
-              maxlength="14"
+              placeholder="Digite o CNPJ (com ou sem pontuação)"
+              maxlength="18"
               autocomplete="off"
+              aria-describedby="cnpjHelp"
+              aria-required="true"
             />
-            <button id="searchBtn" class="search-button">
+            <button 
+              id="searchBtn" 
+              class="search-button"
+              aria-label="Pesquisar CNPJ"
+            >
               <span class="button-text">Pesquisar</span>
-              <span class="button-loading hidden">⏳</span>
+              <span class="button-loading hidden" aria-hidden="true">⏳</span>
             </button>
           </div>
+          
           <div class="input-hint">
-            <small>Digite os 14 dígitos do CNPJ (apenas números)</small>
+            <small id="cnpjHelp">
+              Digite os 14 dígitos do CNPJ (com ou sem pontuação: 00.000.000/0000-00 ou 00000000000000)
+            </small>
           </div>
-          <div id="errorMessage" class="error-message hidden"></div>
+          
+          <div 
+            id="errorMessage" 
+            class="error-message hidden" 
+            role="alert"
+            aria-live="assertive"
+          ></div>
         </section>
 
-        <div id="loading" class="loading hidden">
-          <div class="spinner"></div>
+        <div 
+          id="loading" 
+          class="loading hidden" 
+          role="status"
+          aria-live="polite"
+          aria-label="Consultando dados da empresa"
+        >
+          <div class="spinner" aria-hidden="true"></div>
           <p>Consultando dados da empresa...</p>
         </div>
 
         <div id="result" class="result hidden">
-          <div class="tabs">
-            <button class="tab-button active" data-tab="principal">
+          <div class="tabs" role="tablist" aria-label="Tipos de informação da empresa">
+            <button 
+              class="tab-button active" 
+              data-tab="principal"
+              role="tab"
+              aria-selected="true"
+              aria-controls="tab-principal"
+              id="tab-btn-principal"
+            >
               Informações Principais
             </button>
-            <button class="tab-button" data-tab="completo">
+            <button 
+              class="tab-button" 
+              data-tab="completo"
+              role="tab"
+              aria-selected="false"
+              aria-controls="tab-completo"
+              id="tab-btn-completo"
+            >
               Dados Completos
             </button>
           </div>
 
           <div class="tab-content">
             <!-- ABA PRINCIPAL -->
-            <div id="tab-principal" class="tab-pane active">
+            <div 
+              id="tab-principal" 
+              class="tab-pane active"
+              role="tabpanel"
+              aria-labelledby="tab-btn-principal"
+            >
               <div class="card company-card">
                 <h2>Dados da Empresa</h2>
                 <div class="info-grid">
@@ -124,7 +188,12 @@
             </div>
 
             <!-- ABA COMPLETA -->
-            <div id="tab-completo" class="tab-pane">
+            <div 
+              id="tab-completo" 
+              class="tab-pane"
+              role="tabpanel"
+              aria-labelledby="tab-btn-completo"
+            >
               <div class="card">
                 <h2>Dados Cadastrais Completos</h2>
                 <div class="info-grid" id="completeData">
@@ -136,13 +205,14 @@
         </div>
       </main>
 
-      <footer class="footer">
+      <footer class="footer" role="contentinfo">
         <p>© 2025 CNPJ Finder - Desenvolvido com ajuda da IA</p>
         <div class="footer-links">
           <a
             href="https://linkedin.com/in/itsromulogarcia"
             target="_blank"
             class="footer-link"
+            rel="noopener noreferrer"
           >
             LinkedIn
           </a>
@@ -150,6 +220,7 @@
             href="https://github.com/itsromulogarcia"
             target="_blank"
             class="footer-link"
+            rel="noopener noreferrer"
           >
             GitHub
           </a>
@@ -157,7 +228,6 @@
       </footer>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
   </body>
 </html>
-
