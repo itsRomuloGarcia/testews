@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consulta de CNPJ</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="dark-mode">
+    <div class="container">
+      <header class="header">
+        <div class="header-top">
+          <h1>🔍 Consulta de CNPJ</h1>
+          <button id="themeToggle" class="theme-toggle">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+        <p>Consulte dados de empresas brasileiras de forma rápida e simples</p>
+      </header>
+
+      <main class="main">
+        <section class="search-section">
+          <div class="input-group">
+            <input
+              type="text"
+              id="cnpjInput"
+              placeholder="Digite o CNPJ (apenas números)"
+              maxlength="14"
+              autocomplete="off"
+            />
+            <button id="searchBtn" class="search-button">
+              <span class="button-text">Pesquisar</span>
+              <span class="button-loading hidden">⏳</span>
+            </button>
+          </div>
+          <div class="input-hint">
+            <small>Digite os 14 dígitos do CNPJ (apenas números)</small>
+          </div>
+          <div id="errorMessage" class="error-message hidden"></div>
+        </section>
+
+        <div id="loading" class="loading hidden">
+          <div class="spinner"></div>
+          <p>Consultando dados da empresa...</p>
+        </div>
+
+        <div id="result" class="result hidden">
+          <div class="tabs">
+            <button class="tab-button active" data-tab="principal">
+              Informações Principais
+            </button>
+            <button class="tab-button" data-tab="completo">
+              Dados Completos
+            </button>
+          </div>
+
+          <div class="tab-content">
+            <!-- ABA PRINCIPAL -->
+            <div id="tab-principal" class="tab-pane active">
+              <div class="card company-card">
+                <h2>📊 Dados da Empresa</h2>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <span class="label">Razão Social:</span>
+                    <span id="companyName" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Nome Fantasia:</span>
+                    <span id="tradeName" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">CNPJ:</span>
+                    <span id="cnpj" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Inscrição Estadual:</span>
+                    <span id="ie" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Situação Cadastral:</span>
+                    <span id="status" class="value status-active">-</span>
+                  </div>
+                  <div class="info-item full-width">
+                    <span class="label">Endereço:</span>
+                    <span id="address" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">CNAE Principal:</span>
+                    <span id="cnae" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">Telefones:</span>
+                    <span id="phones" class="value">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">E-mail:</span>
+                    <span id="email" class="value">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="partnersCard" class="card partners-card hidden">
+                <h2>👥 Sócios e Administradores</h2>
+                <div id="partnersList" class="partners-list">
+                  <!-- Sócios serão inseridos aqui dinamicamente -->
+                </div>
+              </div>
+            </div>
+
+            <!-- ABA COMPLETA -->
+            <div id="tab-completo" class="tab-pane">
+              <div class="card">
+                <h2>🏢 Dados Cadastrais Completos</h2>
+                <div class="info-grid" id="completeData">
+                  <!-- Dados completos serão inseridos aqui dinamicamente -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>
+          Consulta realizada através da API CNPJa • Dados atualizados em tempo
+          real
+        </p>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
