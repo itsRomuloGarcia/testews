@@ -5,7 +5,7 @@
 }
 
 :root {
-  --primary-color: #ff8f00;
+  --primary-color: #c57001;
   --primary-dark: #ff6f00;
   --secondary-color: #64748b;
   --success-color: #10b981;
@@ -23,17 +23,17 @@
 
 /* Dark Mode Variables */
 .dark-mode {
-  --primary-color: #d48700;
-  --primary-dark: #ff8f00;
+  --primary-color: #db8b01;
+  --primary-dark: #ff6f00;
   --secondary-color: #94a3b8;
   --success-color: #34d399;
   --warning-color: #fbbf24;
   --error-color: #f87171;
-  --background-color: #141d33;
-  --surface-color: #1e293b;
+  --background-color: #0f172a;
+  --surface-color: #181e27;
   --text-primary: #f1f5f9;
   --text-secondary: #cbd5e1;
-  --border-color: #334155;
+  --border-color: #324663;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
 }
 
@@ -41,7 +41,7 @@ body {
   font-family: "Inter", sans-serif;
   line-height: 1.6;
   color: var(--text-primary);
-  background: linear-gradient(135deg, #0e1c44 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #07102b 0%, #0f1524 100%);
   min-height: 100vh;
   padding: 20px;
   transition: all 0.3s ease;
@@ -65,8 +65,8 @@ body {
 }
 
 .header {
-  background: linear-gradient(135deg, #ffa915, #d37802);
-  color: white;
+  background: linear-gradient(135deg, #fab43c, #cf7703);
+  color: rgba(255, 255, 255, 0.842);
   padding: 40px 30px;
   text-align: center;
   position: relative;
@@ -74,9 +74,10 @@ body {
 
 .header-top {
   display: flex;
-  justify-content: space-between;
+  justify-content: center; /* Centralizado */
   align-items: center;
   margin-bottom: 10px;
+  position: relative;
 }
 
 .theme-toggle {
@@ -91,6 +92,8 @@ body {
   justify-content: center;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  position: absolute;
+  right: 0; /* Posiciona à direita */
 }
 
 .theme-toggle:hover {
@@ -102,6 +105,11 @@ body {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 10px;
+  background: linear-gradient(135deg, #ffffff, #ffe0b2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
 }
 
 .header p {
@@ -444,6 +452,11 @@ input::placeholder {
   .header-top {
     flex-direction: column;
     gap: 15px;
+  }
+
+  .theme-toggle {
+    position: static;
+    margin-top: 15px;
   }
 
   .main {
